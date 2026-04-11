@@ -1,0 +1,56 @@
+{
+    "name": "hunjian/aliyun-ims-mixcut",
+    "description": "PHP 7.3 compatible composer package for Alibaba Cloud IMS AI mixcut timeline building and job submission.",
+    "homepage": "https://github.com/yajie666/hunjian-aliyun-ims-mixcut",
+    "authors": [
+        {
+            "name": "亚杰",
+            "email": "957461674@qq.com",
+            "role": "Developer"
+        }
+    ],
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "aliyun",
+        "ims",
+        "ice",
+        "timeline",
+        "mixcut",
+        "video"
+    ],
+    "require": {
+        "php": ">=7.3",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6"
+    },
+    "suggest": {
+        "alibabacloud/ice-20201109": "官方 IMS/ICE OpenAPI SDK，实际提交 SubmitMediaProducingJob / GetMediaProducingJob 时使用。",
+        "alibabacloud/credentials": "官方 AccessKey / STS 凭证管理。",
+        "darabonba/openapi": "官方 OpenAPI Config 模型。"
+    },
+    "autoload": {
+        "psr-4": {
+            "Hunjian\\AliyunImsMixcut\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Hunjian\\AliyunImsMixcut\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/yajie666/hunjian-aliyun-ims-mixcut"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/yajie666/hunjian-aliyun-ims-mixcut/issues",
+        "source": "https://github.com/yajie666/hunjian-aliyun-ims-mixcut"
+    }
+}
