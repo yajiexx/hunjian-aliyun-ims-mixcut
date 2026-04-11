@@ -116,6 +116,7 @@ array(
                     'type' => 'video',
                     'url' => 'oss://bucket/a.mp4',
                     'sourceRange' => array('in' => 0.0, 'out' => 2.0),
+                    'sceneRange' => array('start' => 0.0, 'end' => 2.0),
                     'duration' => 2.0,
                     'layout' => array(
                         'x' => 0,
@@ -140,6 +141,7 @@ array(
                 'audioUrl' => 'oss://bucket/tts/scene-1.mp3',
                 'text' => '这是镜头一配音文案',
                 'voice' => 'zhitian_emo',
+                'duration' => 4.0,
                 'speechRate' => 0,
                 'pitchRate' => 0,
             ),
@@ -178,11 +180,15 @@ array(
 - Scene timing fields use scene-relative time
 - The backend converts all relative scene timing to absolute timeline timing
 - `sceneDuration` is optional and overrides derived duration when present
+- `dubbing.duration` is the scene dubbing duration hint for version 1
 - `dubbing.audioUrl` takes precedence over `dubbing.text + dubbing.voice`
 - Ordinary subtitles and word art are modeled separately
 - Scene-level transitions and material-level transitions are both supported
+- Transition precedence is `materials[].transition` over `scenes[].transition` over `global.sceneTransition`
 - Global defaults can be overridden at scene level and item level
 - Unknown vendor-specific fields should be preservable through `raw` or `extra`
+- `materials[].sceneRange.start/end` is optional; when absent, materials are laid out sequentially by array order
+- Version 1 allows manual material timing only for non-overlapping placement on the main video track
 
 ## Normalization Rules
 
@@ -213,7 +219,7 @@ It should:
 Resolution priority:
 
 1. explicit `sceneDuration`
-2. scene-level derived duration from dubbing strategy and explicit material durations
+2. explicit `dubbing.duration`
 3. sum of material durations
 4. fallback default duration such as `3.0`
 
@@ -222,11 +228,14 @@ Version 1 deliberately does not probe remote media length. Duration is resolved 
 Practical rule set:
 
 - If `sceneDuration` exists, use it
+- Else if `dubbing.duration` exists, use it
 - Else if the scene contains materials with explicit durations, use their sum
-- Else if the scene contains dubbing but no resolvable media durations, use a safe fallback
+- Else if the scene contains dubbing but no explicit duration hint, use a safe fallback
 - Else use the default scene duration
 
 This keeps the template deterministic and free from network or metadata lookup dependencies.
+
+Resolved scene duration is fixed once chosen. Version 1 does not auto-expand or auto-truncate a scene after resolution.
 
 ## Timeline Assembly
 
@@ -241,7 +250,7 @@ This keeps the template deterministic and free from network or metadata lookup d
 - Each material becomes one `VideoTrackClip`
 - Each material gets a stable clip identifier such as `scene-1-material-2`
 - Materials are sequential by default inside each scene
-- A material can optionally define precise scene-relative timing for custom placement
+- A material can optionally define `sceneRange.start/end` for explicit non-overlapping placement
 - Layout defaults to full-canvas cover when not supplied
 
 ### Transitions
@@ -252,6 +261,7 @@ This keeps the template deterministic and free from network or metadata lookup d
 - Material-level transitions are opt-in
 - Scene-level transitions should be attached to the scene entry clip
 - Material-level transitions should be attached to the target material clip
+- Transitions are treated as crossfades over existing clip durations and do not extend scene duration
 
 ### Dubbing
 
@@ -263,6 +273,8 @@ Rules:
 - Else if `dubbing.text` and `dubbing.voice` exist, create an `AI_TTS` clip
 - The dubbing clip covers the scene time range unless a later revision introduces partial narration support
 - Global BGM remains separate and uses the existing `AudioBuilder::addBgm()` flow
+- If a caller wants dubbing-driven scene length without `sceneDuration`, it must provide `dubbing.duration` in version 1
+- `dubbing.duration` is used only for scene sizing when `sceneDuration` is absent; the assembled dubbing clip still spans the final resolved scene range
 
 ### Subtitles
 
@@ -333,9 +345,11 @@ Handled during normalization:
 Handled during assembly:
 
 - scene item timing must stay inside the resolved scene duration
+- when `sceneDuration` is explicit, any material, subtitle, word art, or dubbing timing that exceeds it should fail validation instead of being truncated
 - transition duration must not exceed the target clip duration
 - resolved reference material timing should overlap the subtitle or word art timing when the reference is present
 - sequential material placement should not overflow the scene duration without an explicit override strategy
+- manually timed materials must not overlap in version 1
 
 ## Error Model
 
