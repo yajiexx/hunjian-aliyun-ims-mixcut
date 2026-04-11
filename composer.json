@@ -43,12 +43,7 @@
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/yajiexx/hunjian-aliyun-ims-mixcut"
-        }
-    ],
+ 
     "support": {
         "issues": "https://github.com/yajiexx/hunjian-aliyun-ims-mixcut/issues",
         "source": "https://github.com/yajiexx/hunjian-aliyun-ims-mixcut"
