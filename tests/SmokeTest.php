@@ -13,6 +13,7 @@ use Hunjian\AliyunImsMixcut\Client\ImsJobClient;
 use Hunjian\AliyunImsMixcut\Model\CampaignPlan;
 use Hunjian\AliyunImsMixcut\Model\EpisodePlan;
 use Hunjian\AliyunImsMixcut\Config\ImsConfig;
+use Hunjian\AliyunImsMixcut\Exception\InvalidSceneMixcutException;
 use Hunjian\AliyunImsMixcut\Model\AudioTrack;
 use Hunjian\AliyunImsMixcut\Model\AudioTrackClip;
 use Hunjian\AliyunImsMixcut\Model\BatchTask;
@@ -28,6 +29,7 @@ use Hunjian\AliyunImsMixcut\Service\MediaProducingService;
 use Hunjian\AliyunImsMixcut\Template\AiNarrationImageVideoTemplate;
 use Hunjian\AliyunImsMixcut\Template\BatchRandomMixcutTemplate;
 use Hunjian\AliyunImsMixcut\Template\PortraitMixcutTemplate;
+use Hunjian\AliyunImsMixcut\Template\SceneMixcutTemplate;
 use Hunjian\AliyunImsMixcut\Result\CampaignRunReport;
 use Hunjian\AliyunImsMixcut\Result\JobRecord;
 use Hunjian\AliyunImsMixcut\Storage\CsvJobRecordExporter;
@@ -58,6 +60,9 @@ class SmokeTest
             'timeline_builder_serializes' => $this->testTimelineBuilderSerializes(),
             'portrait_template_builds' => $this->testPortraitTemplateBuilds(),
             'ai_narration_template_builds' => $this->testAiNarrationTemplateBuilds(),
+            'scene_mixcut_template_builds' => $this->testSceneMixcutTemplateBuilds(),
+            'scene_mixcut_supports_layered_materials' => $this->testSceneMixcutTemplateSupportsLayeredMaterials(),
+            'scene_mixcut_validation_fails' => $this->testSceneMixcutValidationFailsOnSubtitleOverflow(),
             'batch_random_template_builds' => $this->testBatchRandomTemplateBuilds(),
             'material_pool_builds' => $this->testMaterialPoolBuilds(),
             'theme_config_builds' => $this->testThemeConfigBuilds(),
@@ -78,6 +83,7 @@ class SmokeTest
             'mysql_schema_builds' => $this->testMySqlSchemaBuilds(),
             'batch_service_submits_task_objects' => $this->testBatchServiceSubmitsTaskObjects(),
             'service_submit_and_query_stub' => $this->testServiceSubmitAndQueryStub(),
+            'service_submit_scene_mixcut_stub' => $this->testServiceSubmitSceneMixcutStub(),
             'ims_application_factory_builds' => $this->testImsApplicationFactoryBuilds(),
             'ims_application_runs_and_stores_campaign' => $this->testImsApplicationRunsAndStoresCampaign(),
         );
@@ -164,6 +170,78 @@ class SmokeTest
         $this->assert($lastEffect['Type'] === 'AI_ASR', 'AI narration should include AI_ASR effect.');
 
         return true;
+    }
+
+    /**
+     * Assert scene mixcut template output.
+     *
+     * @return bool
+     */
+    public function testSceneMixcutTemplateBuilds()
+    {
+        $template = new SceneMixcutTemplate();
+        $built = $template->build($this->buildSceneMixcutContext());
+
+        $timeline = $built['timeline']->toArray();
+        $this->assert(count($timeline['VideoTracks']) === 1, 'Scene mixcut should use one main video track.');
+        $this->assert(count($timeline['VideoTracks'][0]['VideoTrackClips']) === 3, 'Scene mixcut should expand all materials into clips.');
+        $this->assert(count($timeline['AudioTracks']) === 2, 'Scene mixcut should create narration and BGM tracks.');
+        $this->assert($timeline['AudioTracks'][0]['AudioTrackClips'][0]['Type'] === 'Audio', 'audioUrl should take precedence over AI_TTS.');
+        $this->assert($timeline['AudioTracks'][0]['AudioTrackClips'][1]['Type'] === 'AI_TTS', 'text + voice should fall back to AI_TTS.');
+        $this->assert(count($timeline['SubtitleTracks']) === 2, 'Scene mixcut should create subtitle and word art tracks.');
+        $this->assert($timeline['SubtitleTracks'][0]['SubtitleTrackClips'][0]['ReferenceClipId'] === 'scene-1-material-1', 'Subtitle should map referenceMaterialId to clipId.');
+        $this->assert($timeline['SubtitleTracks'][1]['SubtitleTrackClips'][0]['TimelineIn'] === 1.0, 'Word art should convert scene-relative timing to timeline timing.');
+
+        return true;
+    }
+
+    /**
+     * Assert scene mixcut supports overlapped layered materials.
+     *
+     * @return bool
+     */
+    public function testSceneMixcutTemplateSupportsLayeredMaterials()
+    {
+        $template = new SceneMixcutTemplate();
+        $context = $this->buildLayeredSceneMixcutContext();
+        $built = $template->build($context);
+
+        $clips = $built['timeline']->toArray()['VideoTracks'][0]['VideoTrackClips'];
+        $this->assert(count($clips) === 2, 'Layered scene should still expand into two clips.');
+        $this->assert($clips[0]['TimelineIn'] === 0.0, 'Base layer should start at scene start.');
+        $this->assert($clips[0]['TimelineOut'] === 4.0, 'Base layer should keep full scene range.');
+        $this->assert($clips[1]['TimelineIn'] === 1.0, 'Overlay layer should preserve manual sceneRange start.');
+        $this->assert($clips[1]['TimelineOut'] === 3.0, 'Overlay layer should preserve manual sceneRange end.');
+        $this->assert($clips[0]['ZOrder'] === 1, 'Base layer should keep lower zOrder.');
+        $this->assert($clips[1]['ZOrder'] === 10, 'Overlay layer should keep higher zOrder.');
+        $this->assert($clips[1]['X'] === 140.0, 'Overlay layer should preserve custom layout.');
+        $this->assert($clips[1]['Width'] === 800.0, 'Overlay layer should preserve custom width.');
+
+        return true;
+    }
+
+    /**
+     * Assert scene mixcut validation reports subtitle overflow clearly.
+     *
+     * @return bool
+     */
+    public function testSceneMixcutValidationFailsOnSubtitleOverflow()
+    {
+        $template = new SceneMixcutTemplate();
+        $context = $this->buildSceneMixcutContext();
+        $context['scenes'][0]['sceneDuration'] = 3.0;
+        $context['scenes'][0]['subtitles'][0]['end'] = 3.5;
+
+        try {
+            $template->build($context);
+        } catch (InvalidSceneMixcutException $exception) {
+            $this->assert($exception->getErrorCodeName() === 'INVALID_SCENE_ITEM_RANGE', 'Scene mixcut should expose machine-readable error code.');
+            $this->assert($exception->getPath() === 'scenes[0].subtitles[0].end', 'Scene mixcut should expose the failing path.');
+
+            return true;
+        }
+
+        throw new \RuntimeException('Scene mixcut should reject subtitle overflow.');
     }
 
     /**
@@ -730,6 +808,32 @@ class SmokeTest
     }
 
     /**
+     * Assert stub service submit scene mixcut flow.
+     *
+     * @return bool
+     */
+    public function testServiceSubmitSceneMixcutStub()
+    {
+        $config = (new ImsConfig())
+            ->setEndpoint('ice.cn-shanghai.aliyuncs.com')
+            ->setRegionId('cn-shanghai')
+            ->setBucket('demo-bucket')
+            ->setOutputPathPrefix('mixcut')
+            ->setProjectId('test-project');
+
+        $client = new ImsJobClient($config, new StubAdapter());
+        $service = new MediaProducingService($client);
+        $job = $service->submitSceneMixcut($this->buildSceneMixcutContext());
+
+        $this->assert($job->getJobId() !== null, 'Scene mixcut submit should return JobId.');
+        $payload = $job->getRequestPayload();
+        $this->assert(count($payload['Timeline']['VideoTracks'][0]['VideoTrackClips']) === 3, 'Scene mixcut submit should send expanded clips.');
+        $this->assert($payload['Timeline']['AudioTracks'][0]['AudioTrackClips'][0]['MediaURL'] === 'oss://demo/audio/scene-1.mp3', 'Scene mixcut submit should keep raw dubbing URL.');
+
+        return true;
+    }
+
+    /**
      * Assert application factory assembles default components.
      *
      * @return bool
@@ -871,5 +975,166 @@ class SmokeTest
         }
 
         @rmdir($path);
+    }
+
+    /**
+     * Build a reusable scene mixcut context payload.
+     *
+     * @return array
+     */
+    protected function buildSceneMixcutContext()
+    {
+        return array(
+            'outputMediaConfig' => OutputMediaConfig::oss('oss://demo-bucket/out/scene-mixcut.mp4'),
+            'global' => array(
+                'bgm' => 'oss://demo/audio/bgm.mp3',
+                'sceneTransition' => array('type' => 'fade', 'duration' => 0.4),
+                'subtitleStyle' => array(
+                    'font' => 'Alibaba PuHuiTi 2.0',
+                    'fontSize' => 48,
+                    'fontColor' => '#FFFFFF',
+                    'boxColor' => '#000000',
+                ),
+                'wordArtStyle' => array(
+                    'fontColor' => '#FF9F1C',
+                    'boxColor' => '#101820',
+                ),
+            ),
+            'scenes' => array(
+                array(
+                    'sceneId' => 'scene-1',
+                    'sceneDuration' => 3.0,
+                    'dubbing' => array(
+                        'audioUrl' => 'oss://demo/audio/scene-1.mp3',
+                        'text' => '这一段应该优先使用已合成的音频。',
+                        'voice' => 'zhitian_emo',
+                        'duration' => 3.0,
+                    ),
+                    'materials' => array(
+                        array(
+                            'materialId' => 'm-1',
+                            'type' => 'video',
+                            'url' => 'oss://demo/video/scene-1-a.mp4',
+                            'duration' => 1.5,
+                            'sourceRange' => array('in' => 0.0, 'out' => 1.5),
+                        ),
+                        array(
+                            'materialId' => 'm-2',
+                            'type' => 'image',
+                            'url' => 'oss://demo/image/scene-1-b.jpg',
+                            'duration' => 1.5,
+                        ),
+                    ),
+                    'subtitles' => array(
+                        array(
+                            'text' => '第一镜头字幕',
+                            'start' => 0.0,
+                            'end' => 1.2,
+                            'referenceMaterialId' => 'm-1',
+                        ),
+                    ),
+                    'wordArts' => array(
+                        array(
+                            'text' => '重点来了',
+                            'start' => 1.0,
+                            'end' => 2.2,
+                            'layout' => array(
+                                'x' => 100,
+                                'y' => 260,
+                                'width' => 400,
+                                'height' => 120,
+                                'alignment' => 'Center',
+                            ),
+                        ),
+                    ),
+                ),
+                array(
+                    'sceneId' => 'scene-2',
+                    'dubbing' => array(
+                        'text' => '第二段回退到 TTS。',
+                        'voice' => 'zhitian_emo',
+                        'duration' => 2.0,
+                    ),
+                    'materials' => array(
+                        array(
+                            'materialId' => 'm-3',
+                            'type' => 'video',
+                            'url' => 'oss://demo/video/scene-2-a.mp4',
+                            'duration' => 2.0,
+                            'transition' => array('type' => 'directional-left', 'duration' => 0.3),
+                        ),
+                    ),
+                    'subtitles' => array(
+                        array(
+                            'text' => '第二镜头字幕',
+                            'start' => 0.0,
+                            'end' => 1.5,
+                            'referenceMaterialId' => 'm-3',
+                        ),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * Build a layered scene mixcut payload with overlapped materials.
+     *
+     * @return array
+     */
+    protected function buildLayeredSceneMixcutContext()
+    {
+        return array(
+            'outputMediaConfig' => OutputMediaConfig::oss('oss://demo-bucket/out/scene-layered-mixcut.mp4'),
+            'scenes' => array(
+                array(
+                    'sceneId' => 'layer-scene-1',
+                    'sceneDuration' => 4.0,
+                    'dubbing' => array(
+                        'text' => '层级镜头示例',
+                        'voice' => 'zhitian_emo',
+                        'duration' => 4.0,
+                    ),
+                    'materials' => array(
+                        array(
+                            'materialId' => 'base-video',
+                            'type' => 'video',
+                            'url' => 'oss://demo/video/base.mp4',
+                            'sceneRange' => array('start' => 0.0, 'end' => 4.0),
+                            'zOrder' => 1,
+                            'layout' => array(
+                                'x' => 0,
+                                'y' => 0,
+                                'width' => 1080,
+                                'height' => 1920,
+                                'adaptMode' => 'Cover',
+                            ),
+                        ),
+                        array(
+                            'materialId' => 'overlay-video',
+                            'type' => 'video',
+                            'url' => 'oss://demo/video/overlay.mp4',
+                            'sceneRange' => array('start' => 1.0, 'end' => 3.0),
+                            'zOrder' => 10,
+                            'layout' => array(
+                                'x' => 140,
+                                'y' => 320,
+                                'width' => 800,
+                                'height' => 960,
+                                'adaptMode' => 'Contain',
+                            ),
+                        ),
+                    ),
+                    'subtitles' => array(
+                        array(
+                            'text' => '层级字幕',
+                            'start' => 0.5,
+                            'end' => 2.5,
+                            'referenceMaterialId' => 'base-video',
+                        ),
+                    ),
+                ),
+            ),
+        );
     }
 }

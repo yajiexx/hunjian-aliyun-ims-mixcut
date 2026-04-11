@@ -46,11 +46,11 @@
     "repositories": [
         {
             "type": "vcs",
-            "url": "https://github.com/yajie666/hunjian-aliyun-ims-mixcut"
+            "url": "https://github.com/yajiexx/hunjian-aliyun-ims-mixcut"
         }
     ],
     "support": {
-        "issues": "https://github.com/yajie666/hunjian-aliyun-ims-mixcut/issues",
-        "source": "https://github.com/yajie666/hunjian-aliyun-ims-mixcut"
+        "issues": "https://github.com/yajiexx/hunjian-aliyun-ims-mixcut/issues",
+        "source": "https://github.com/yajiexx/hunjian-aliyun-ims-mixcut"
     }
 }

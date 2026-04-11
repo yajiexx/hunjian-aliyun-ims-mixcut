@@ -9,6 +9,7 @@ use Hunjian\AliyunImsMixcut\Model\OutputMediaConfig;
 use Hunjian\AliyunImsMixcut\Model\Timeline;
 use Hunjian\AliyunImsMixcut\Result\JobResult;
 use Hunjian\AliyunImsMixcut\Result\ProduceResult;
+use Hunjian\AliyunImsMixcut\Template\SceneMixcutTemplate;
 
 /**
  * 媒体制作服务类
@@ -60,6 +61,19 @@ class MediaProducingService
         $built = $template->build($context);
 
         return $this->submitTimeline($built['timeline'], $built['outputMediaConfig'], $options);
+    }
+
+    /**
+     * Submit a scene-based local mixcut payload.
+     *
+     * @param array $context
+     * @param array $options
+     *
+     * @return JobResult
+     */
+    public function submitSceneMixcut(array $context = array(), array $options = array())
+    {
+        return $this->submitLocalTemplate(new SceneMixcutTemplate(), $context, $options);
     }
 
     /**
