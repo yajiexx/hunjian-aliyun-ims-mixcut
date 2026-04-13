@@ -27,9 +27,7 @@
         "phpunit/phpunit": "^9.6"
     },
     "suggest": {
-        "alibabacloud/ice-20201109": "官方 IMS/ICE OpenAPI SDK，实际提交 SubmitMediaProducingJob / GetMediaProducingJob 时使用。",
-        "alibabacloud/credentials": "官方 AccessKey / STS 凭证管理。",
-        "darabonba/openapi": "官方 OpenAPI Config 模型。"
+        "alibabacloud/ice-20201109": "官方 IMS/ICE OpenAPI SDK，安装后会连带拉取 credentials 和 OpenAPI 相关依赖。"
     },
     "autoload": {
         "psr-4": {
@@ -43,12 +41,7 @@
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/yajiexx/hunjian-aliyun-ims-mixcut"
-        }
-    ],
+ 
     "support": {
         "issues": "https://github.com/yajiexx/hunjian-aliyun-ims-mixcut/issues",
         "source": "https://github.com/yajiexx/hunjian-aliyun-ims-mixcut"

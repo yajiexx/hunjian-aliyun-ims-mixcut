@@ -126,14 +126,13 @@ composer require hunjian/aliyun-ims-mixcut
 如果你需要真的调用阿里云接口，还需要安装官方 SDK 依赖：
 
 ```bash
-composer require alibabacloud/ice-20201109 alibabacloud/credentials darabonba/openapi
+composer require alibabacloud/ice-20201109
 ```
 
 说明：
 
-- `alibabacloud/ice-20201109`：IMS/ICE OpenAPI SDK
-- `alibabacloud/credentials`：AccessKey / STS 凭证
-- `darabonba/openapi`：OpenAPI Config 模型
+- `alibabacloud/ice-20201109`：IMS/ICE OpenAPI SDK，Composer 会自动安装它依赖的 `alibabacloud/credentials` 和 OpenAPI 相关包
+- 如果你因为私有镜像、锁文件或排障需要手动补装 OpenAPI 模型包，请使用 `alibabacloud/darabonba-openapi`，不要写成 `darabonba/openapi`
 
 ## 环境变量
 
