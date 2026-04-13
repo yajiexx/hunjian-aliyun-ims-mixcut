@@ -6,12 +6,12 @@ use Hunjian\AliyunImsMixcut\Exception\InvalidSceneMixcutException;
 use Hunjian\AliyunImsMixcut\Model\OutputMediaConfig;
 
 /**
- * Normalize editor-style scene payloads into a stable internal structure.
+ * 将编辑器风格的场景负载规范化为稳定的内部结构。
  */
 class ScenePayloadNormalizer
 {
     /**
-     * Normalize top-level context.
+     * 规范化顶层上下文。
      *
      * @param array $context
      *
@@ -171,7 +171,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Normalize dubbing input.
+     * 规范化配音输入。
      *
      * @param array  $dubbing
      * @param string $path
@@ -209,7 +209,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Normalize subtitle or word art collections.
+     * 规范化字幕或艺术字集合。
      *
      * @param array  $items
      * @param string $path
@@ -271,7 +271,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Normalize range arrays.
+     * 规范化范围数组。
      *
      * @param array|null $range
      * @param string     $path
@@ -303,7 +303,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Normalize scene/item layout.
+     * 规范化场景/项目布局。
      *
      * @param array $layout
      * @param int   $canvasWidth
@@ -335,7 +335,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Normalize transition data.
+     * 规范化转场数据。
      *
      * @param mixed $transition
      *
@@ -370,7 +370,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Normalize merged style arrays.
+     * 规范化合并样式数组。
      *
      * @param array $style
      * @param bool  $wordArt
@@ -415,7 +415,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Normalize collections while accepting one item.
+     * 规范化集合，同时接受单个项目。
      *
      * @param mixed $value
      *
@@ -435,7 +435,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Normalize numeric values and ensure non-negative.
+     * 规范化数值并确保非负。
      *
      * @param mixed  $value
      * @param string $path
@@ -457,7 +457,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Normalize material z-order / layer.
+     * 规范化素材的 z-order / 图层。
      *
      * @param array  $material
      * @param string $path
@@ -485,7 +485,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Determine whether an array is associative.
+     * 判断数组是否为关联数组。
      *
      * @param array $data
      *
@@ -497,7 +497,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Merge associative arrays without recursion.
+     * 递归合并关联数组。
      *
      * @param array $base
      * @param array $overrides
@@ -516,7 +516,7 @@ class ScenePayloadNormalizer
     }
 
     /**
-     * Throw a payload exception.
+     * 抛出负载异常。
      *
      * @param string      $code
      * @param string      $message

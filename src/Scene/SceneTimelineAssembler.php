@@ -20,12 +20,12 @@ use Hunjian\AliyunImsMixcut\Model\VideoTrack;
 use Hunjian\AliyunImsMixcut\Model\VideoTrackClip;
 
 /**
- * Convert normalized scene payloads into IMS timeline objects.
+ * 将归一化的场景负载转换为 IMS 时间线对象。
  */
 class SceneTimelineAssembler
 {
     /**
-     * Assemble timeline from normalized, duration-resolved scene payload.
+     * 从归一化、时长已解析的场景负载组装时间线。
      *
      * @param array $context
      *
@@ -156,11 +156,11 @@ class SceneTimelineAssembler
     }
 
     /**
-     * Resolve material placements for one scene.
+     * 解析单个场景的素材放置位置。
      *
-     * @param array $scene
-     * @param int   $sceneIndex
-     * @param float $sceneStart
+     * @param array  $scene
+     * @param int    $sceneIndex
+     * @param float  $sceneStart
      *
      * @return array
      */
@@ -237,15 +237,15 @@ class SceneTimelineAssembler
     }
 
     /**
-     * Build one subtitle or word art clip.
+     * 构建单个字幕或艺术字片段。
      *
-     * @param array $item
-     * @param int   $sceneIndex
-     * @param int   $itemIndex
-     * @param float $sceneStart
-     * @param float $sceneEnd
-     * @param array $referenceMap
-     * @param bool  $wordArt
+     * @param array  $item
+     * @param int    $sceneIndex
+     * @param int    $itemIndex
+     * @param float  $sceneStart
+     * @param float  $sceneEnd
+     * @param array  $referenceMap
+     * @param bool   $wordArt
      *
      * @return SubtitleTrackClip
      */
@@ -301,7 +301,7 @@ class SceneTimelineAssembler
     }
 
     /**
-     * Add one narration clip if needed.
+     * 必要时添加一个旁白片段。
      *
      * @param AudioTrack $track
      * @param array      $scene
@@ -348,7 +348,7 @@ class SceneTimelineAssembler
     }
 
     /**
-     * Build subtitle effects from style array.
+     * 从样式数组构建字幕效果。
      *
      * @param array $style
      *
@@ -385,7 +385,7 @@ class SceneTimelineAssembler
     }
 
     /**
-     * Resolve transition precedence for one material clip.
+     * 解析单个素材片段的转场优先级。
      *
      * @param array $context
      * @param array $scene
@@ -412,7 +412,7 @@ class SceneTimelineAssembler
         return null;
     }
     /**
-     * Throw a scene mixcut exception.
+     * 抛出场景混剪异常。
      *
      * @param string      $code
      * @param string      $message

@@ -3,7 +3,7 @@
 namespace Hunjian\AliyunImsMixcut\Scene;
 
 /**
- * Resolve final scene durations from normalized scene payloads.
+ * 从规范化的场景负载中解析最终场景时长。
  */
 class SceneDurationResolver
 {
@@ -21,7 +21,7 @@ class SceneDurationResolver
     }
 
     /**
-     * Resolve scene durations.
+     * 解析场景时长。
      *
      * @param array $context
      *
@@ -43,7 +43,7 @@ class SceneDurationResolver
     }
 
     /**
-     * Resolve one scene.
+     * 解析单个场景时长。
      *
      * @param array $scene
      *

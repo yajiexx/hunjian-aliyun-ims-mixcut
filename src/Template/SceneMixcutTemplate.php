@@ -9,7 +9,7 @@ use Hunjian\AliyunImsMixcut\Scene\ScenePayloadNormalizer;
 use Hunjian\AliyunImsMixcut\Scene\SceneTimelineAssembler;
 
 /**
- * Scene-based mixcut template for editor payloads.
+ * 基于场景的混剪模板，用于编辑器载荷。
  */
 class SceneMixcutTemplate implements TemplateInterface
 {
@@ -44,7 +44,7 @@ class SceneMixcutTemplate implements TemplateInterface
     }
 
     /**
-     * Build scene mixcut timeline.
+     * 构建场景混剪时间线。
      *
      * @param array $context
      *
