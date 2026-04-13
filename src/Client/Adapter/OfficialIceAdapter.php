@@ -85,7 +85,7 @@ class OfficialIceAdapter implements ImsAdapterInterface
         $clientClass = 'AlibabaCloud\\SDK\\ICE\\V20201109\\ICE';
 
         if (!class_exists($credentialClass) || !class_exists($openApiConfigClass) || !class_exists($clientClass)) {
-            throw new ImsException('Official IMS SDK classes are missing. Install alibabacloud/ice-20201109, alibabacloud/credentials and darabonba/openapi.');
+            throw new ImsException('Official IMS SDK classes are missing. Install alibabacloud/ice-20201109 first; Composer should pull the required credentials/OpenAPI packages transitively.');
         }
 
         $credential = new $credentialClass(array(
