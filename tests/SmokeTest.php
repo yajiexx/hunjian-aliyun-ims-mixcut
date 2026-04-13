@@ -13,6 +13,7 @@ use Hunjian\AliyunImsMixcut\Client\ImsJobClient;
 use Hunjian\AliyunImsMixcut\Model\CampaignPlan;
 use Hunjian\AliyunImsMixcut\Model\EpisodePlan;
 use Hunjian\AliyunImsMixcut\Config\ImsConfig;
+use Hunjian\AliyunImsMixcut\Exception\InvalidEditorProjectException;
 use Hunjian\AliyunImsMixcut\Exception\InvalidSceneMixcutException;
 use Hunjian\AliyunImsMixcut\Model\AudioTrack;
 use Hunjian\AliyunImsMixcut\Model\AudioTrackClip;
@@ -28,6 +29,7 @@ use Hunjian\AliyunImsMixcut\Service\CampaignProducingService;
 use Hunjian\AliyunImsMixcut\Service\MediaProducingService;
 use Hunjian\AliyunImsMixcut\Template\AiNarrationImageVideoTemplate;
 use Hunjian\AliyunImsMixcut\Template\BatchRandomMixcutTemplate;
+use Hunjian\AliyunImsMixcut\Template\EditorProjectTemplate;
 use Hunjian\AliyunImsMixcut\Template\PortraitMixcutTemplate;
 use Hunjian\AliyunImsMixcut\Template\SceneMixcutTemplate;
 use Hunjian\AliyunImsMixcut\Result\CampaignRunReport;
@@ -63,6 +65,8 @@ class SmokeTest
             'scene_mixcut_template_builds' => $this->testSceneMixcutTemplateBuilds(),
             'scene_mixcut_supports_layered_materials' => $this->testSceneMixcutTemplateSupportsLayeredMaterials(),
             'scene_mixcut_validation_fails' => $this->testSceneMixcutValidationFailsOnSubtitleOverflow(),
+            'editor_project_template_builds' => $this->testEditorProjectTemplateBuilds(),
+            'editor_project_validation_fails' => $this->testEditorProjectValidationFailsOnClipOverflow(),
             'batch_random_template_builds' => $this->testBatchRandomTemplateBuilds(),
             'material_pool_builds' => $this->testMaterialPoolBuilds(),
             'theme_config_builds' => $this->testThemeConfigBuilds(),
@@ -84,6 +88,7 @@ class SmokeTest
             'batch_service_submits_task_objects' => $this->testBatchServiceSubmitsTaskObjects(),
             'service_submit_and_query_stub' => $this->testServiceSubmitAndQueryStub(),
             'service_submit_scene_mixcut_stub' => $this->testServiceSubmitSceneMixcutStub(),
+            'service_submit_editor_project_stub' => $this->testServiceSubmitEditorProjectStub(),
             'ims_application_factory_builds' => $this->testImsApplicationFactoryBuilds(),
             'ims_application_runs_and_stores_campaign' => $this->testImsApplicationRunsAndStoresCampaign(),
         );
@@ -242,6 +247,56 @@ class SmokeTest
         }
 
         throw new \RuntimeException('Scene mixcut should reject subtitle overflow.');
+    }
+
+    /**
+     * Assert editor project template output.
+     *
+     * @return bool
+     */
+    public function testEditorProjectTemplateBuilds()
+    {
+        $template = new EditorProjectTemplate();
+        $built = $template->build($this->buildEditorProjectContext());
+
+        $timeline = $built['timeline']->toArray();
+        $this->assert(count($timeline['VideoTracks']) === 2, 'Editor project should create video tracks for media and overlay element layers.');
+        $this->assert(count($timeline['VideoTracks'][0]['VideoTrackClips']) === 1, 'Editor project main media track clip count mismatch.');
+        $this->assert(count($timeline['VideoTracks'][1]['VideoTrackClips']) === 1, 'Editor project overlay track clip count mismatch.');
+        $this->assert(count($timeline['AudioTracks']) === 2, 'Editor project should separate BGM and voice audio tracks.');
+        $this->assert(count($timeline['SubtitleTracks']) === 1, 'Editor project should create one text subtitle track.');
+        $this->assert(count($timeline['EffectTracks']) === 1, 'Editor project should create one background effect track.');
+        $this->assert($timeline['EffectTracks'][0]['EffectTrackItems'][0]['Type'] === 'GlobalImage', 'Editor project background should compile as GlobalImage.');
+        $this->assert($timeline['VideoTracks'][0]['VideoTrackClips'][0]['Effects'][0]['Type'] === 'Transition', 'Editor project clip transition should compile to a Transition effect.');
+        $this->assert($timeline['VideoTracks'][0]['VideoTrackClips'][0]['Effects'][1]['SubType'] === 'fade_in', 'Editor project entry animation should compile to VFX.');
+        $this->assert($timeline['SubtitleTracks'][0]['SubtitleTrackClips'][0]['SubtitleEffects'][0]['Type'] === 'Animation', 'Editor project text animation should compile to subtitle animation effect.');
+        $this->assert($timeline['VideoTracks'][1]['VideoTrackClips'][0]['TimelineIn'] === 1.0, 'Editor project overlay clip should preserve start time.');
+        $this->assert($built['outputMediaConfig']->toArray()['Height'] === 1920, 'Editor project output height mismatch.');
+
+        return true;
+    }
+
+    /**
+     * Assert editor project validation reports clip overflow clearly.
+     *
+     * @return bool
+     */
+    public function testEditorProjectValidationFailsOnClipOverflow()
+    {
+        $template = new EditorProjectTemplate();
+        $context = $this->buildEditorProjectContext();
+        $context['sequence']['layers'][1]['items'][0]['duration'] = 8.0;
+
+        try {
+            $template->build($context);
+        } catch (InvalidEditorProjectException $exception) {
+            $this->assert($exception->getErrorCodeName() === 'INVALID_EDITOR_CLIP_RANGE', 'Editor project should expose machine-readable error code.');
+            $this->assert($exception->getPath() === 'sequence.layers[1].items[0].duration', 'Editor project should expose the failing path.');
+
+            return true;
+        }
+
+        throw new \RuntimeException('Editor project should reject clip overflow.');
     }
 
     /**
@@ -834,6 +889,33 @@ class SmokeTest
     }
 
     /**
+     * Assert stub service submit editor project flow.
+     *
+     * @return bool
+     */
+    public function testServiceSubmitEditorProjectStub()
+    {
+        $config = (new ImsConfig())
+            ->setEndpoint('ice.cn-shanghai.aliyuncs.com')
+            ->setRegionId('cn-shanghai')
+            ->setBucket('demo-bucket')
+            ->setOutputPathPrefix('mixcut')
+            ->setProjectId('test-project');
+
+        $client = new ImsJobClient($config, new StubAdapter());
+        $service = new MediaProducingService($client);
+        $job = $service->submitEditorProject($this->buildEditorProjectContext());
+
+        $this->assert($job->getJobId() !== null, 'Editor project submit should return JobId.');
+        $payload = $job->getRequestPayload();
+        $this->assert(count($payload['Timeline']['VideoTracks']) === 2, 'Editor project submit should keep compiled video tracks.');
+        $this->assert($payload['Timeline']['AudioTracks'][0]['AudioTrackClips'][0]['MediaURL'] === 'oss://demo/audio/editor-bgm.mp3', 'Editor project submit should keep BGM URL.');
+        $this->assert($payload['OutputMediaConfig']['MediaURL'] === 'oss://demo-bucket/out/editor-project.mp4', 'Editor project submit should keep output media URL.');
+
+        return true;
+    }
+
+    /**
      * Assert application factory assembles default components.
      *
      * @return bool
@@ -1131,6 +1213,156 @@ class SmokeTest
                             'start' => 0.5,
                             'end' => 2.5,
                             'referenceMaterialId' => 'base-video',
+                        ),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * Build a reusable editor project payload.
+     *
+     * @return array
+     */
+    protected function buildEditorProjectContext()
+    {
+        return array(
+            'outputMediaConfig' => OutputMediaConfig::oss('oss://demo-bucket/out/editor-project.mp4'),
+            'canvas' => array(
+                'width' => 1080,
+                'height' => 1920,
+            ),
+            'sequence' => array(
+                'duration' => 6.0,
+                'layers' => array(
+                    array(
+                        'layerId' => 'background',
+                        'type' => 'background',
+                        'items' => array(
+                            array(
+                                'type' => 'image',
+                                'url' => 'oss://demo/image/editor-bg.jpg',
+                                'start' => 0.0,
+                                'duration' => 6.0,
+                            ),
+                        ),
+                    ),
+                    array(
+                        'layerId' => 'media',
+                        'type' => 'video',
+                        'items' => array(
+                            array(
+                                'clipId' => 'hero-video',
+                                'type' => 'video',
+                                'url' => 'oss://demo/video/editor-main.mp4',
+                                'start' => 0.0,
+                                'duration' => 4.0,
+                                'sourceRange' => array('in' => 1.0, 'out' => 5.0),
+                                'layout' => array(
+                                    'x' => 0,
+                                    'y' => 0,
+                                    'width' => 1080,
+                                    'height' => 1920,
+                                    'adaptMode' => 'Cover',
+                                ),
+                                'transition' => array(
+                                    'type' => 'fade',
+                                    'duration' => 0.4,
+                                ),
+                                'animations' => array(
+                                    array(
+                                        'phase' => 'in',
+                                        'preset' => 'fade_in',
+                                        'duration' => 0.3,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    array(
+                        'layerId' => 'audio',
+                        'type' => 'audio',
+                        'items' => array(
+                            array(
+                                'clipId' => 'bgm-track',
+                                'type' => 'audio',
+                                'url' => 'oss://demo/audio/editor-bgm.mp3',
+                                'start' => 0.0,
+                                'duration' => 6.0,
+                                'role' => 'bgm',
+                                'loop' => true,
+                            ),
+                            array(
+                                'clipId' => 'voice-track',
+                                'type' => 'audio',
+                                'url' => 'oss://demo/audio/editor-voice.mp3',
+                                'start' => 0.0,
+                                'duration' => 4.5,
+                                'role' => 'voice',
+                                'volume' => 0.85,
+                            ),
+                        ),
+                    ),
+                    array(
+                        'layerId' => 'titles',
+                        'type' => 'text',
+                        'items' => array(
+                            array(
+                                'clipId' => 'headline',
+                                'type' => 'text',
+                                'text' => '做内容获客 用蝉镜数字人',
+                                'start' => 0.5,
+                                'duration' => 2.5,
+                                'style' => array(
+                                    'font' => 'Alibaba PuHuiTi 2.0',
+                                    'fontSize' => 52,
+                                    'fontColor' => '#FFFFFF',
+                                    'boxColor' => '#000000',
+                                ),
+                                'layout' => array(
+                                    'x' => 120,
+                                    'y' => 1320,
+                                    'width' => 840,
+                                    'height' => 180,
+                                    'alignment' => 'BottomCenter',
+                                ),
+                                'animations' => array(
+                                    array(
+                                        'phase' => 'in',
+                                        'preset' => 'pop_in',
+                                        'duration' => 0.25,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    array(
+                        'layerId' => 'elements',
+                        'type' => 'element',
+                        'items' => array(
+                            array(
+                                'clipId' => 'sparkle-overlay',
+                                'type' => 'video',
+                                'url' => 'oss://demo/elements/sparkle.webm',
+                                'start' => 1.0,
+                                'duration' => 2.0,
+                                'zIndex' => 12,
+                                'layout' => array(
+                                    'x' => 140,
+                                    'y' => 220,
+                                    'width' => 360,
+                                    'height' => 360,
+                                    'adaptMode' => 'Contain',
+                                ),
+                                'animations' => array(
+                                    array(
+                                        'phase' => 'emphasis',
+                                        'preset' => 'breath',
+                                        'duration' => 1.2,
+                                    ),
+                                ),
+                            ),
                         ),
                     ),
                 ),

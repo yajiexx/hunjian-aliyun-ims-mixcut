@@ -9,6 +9,7 @@ use Hunjian\AliyunImsMixcut\Model\OutputMediaConfig;
 use Hunjian\AliyunImsMixcut\Model\Timeline;
 use Hunjian\AliyunImsMixcut\Result\JobResult;
 use Hunjian\AliyunImsMixcut\Result\ProduceResult;
+use Hunjian\AliyunImsMixcut\Template\EditorProjectTemplate;
 use Hunjian\AliyunImsMixcut\Template\SceneMixcutTemplate;
 
 /**
@@ -74,6 +75,19 @@ class MediaProducingService
     public function submitSceneMixcut(array $context = array(), array $options = array())
     {
         return $this->submitLocalTemplate(new SceneMixcutTemplate(), $context, $options);
+    }
+
+    /**
+     * Submit an editor-project local payload.
+     *
+     * @param array $context
+     * @param array $options
+     *
+     * @return JobResult
+     */
+    public function submitEditorProject(array $context = array(), array $options = array())
+    {
+        return $this->submitLocalTemplate(new EditorProjectTemplate(), $context, $options);
     }
 
     /**
