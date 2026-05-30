@@ -1,6 +1,20 @@
+
+
+<!-- DREAMFIELD_README_HEADER_START -->
+
+<p align="center">
+  <a href="https://www.dreamfield.top">
+    <img src="https://www.dreamfield.top/dream-field/contest-readme/assets/dreamseed-readme-banner.png" alt="DreamSeed 种梦计划参赛作品" width="100%" />
+  </a>
+</p>
+
+
+<!-- DREAMFIELD_README_HEADER_END -->
+
+
 # aliyun-ims-mixcut
 
-一个面向业务项目的 PHP 7.3 兼容 composer 包，用来封装阿里云智能媒体服务 IMS 的 AI 混剪能力。包的核心目标不是“演示如何调一个接口”，而是把 `SubmitMediaProducingJob` / `GetMediaProducingJob` 包装成一套可复用的 Timeline Builder、模板化混剪、批量随机混剪、结果查询和异常处理方案。
+使用AI辅助完成的一个面向业务项目的 PHP 7.3 兼容 composer 包，用来封装阿里云智能媒体服务 IMS 的 AI 混剪能力。包的核心目标不是“演示如何调一个接口”，而是把 `SubmitMediaProducingJob` / `GetMediaProducingJob` 包装成一套可复用的 Timeline Builder、模板化混剪、批量随机混剪、结果查询和异常处理方案。
 
 ## 设计目标
 
